@@ -1,0 +1,165 @@
+import type { Submission } from "../judge";
+import type {
+  LedgerMoves,
+  LedgerReading,
+  Refusal,
+  SandboxAnswer,
+  Seeds,
+  StateChange,
+  VerdictReading,
+  ViewChange,
+} from "../runtime/index.mjs";
+
+/** The 红包 a run plays: shares (count, minEach) as protocol 5 tells check() and setup(). */
+export type PlayedHongbao = Pick<
+  Submission["hongbao"],
+  "title" | "total" | "count" | "minEach" | "openedAt" | "endsAt"
+>;
+
+export type Print = (line: string) => void;
+
+export type CommandOptions = {
+  /** The kit's directory: judge.js, tests.json and simulate.json are here. */
+  dir: string;
+  /** What follows the command, as npm passes it after `--`. */
+  args?: string[];
+  /** Where a file argument is read from (npm's INIT_CWD); `dir` by default. */
+  cwd?: string;
+  /** Each line of output; console.log by default. */
+  print?: Print;
+};
+
+export const PROTOCOL: number;
+export const COMPATIBILITY_DATE: string;
+export const SANDBOX_MODULES: readonly string[];
+export const TIMEOUT_MS: number;
+export const SLOW_MS: number;
+export const TESTS_BYTES: number;
+
+export type Sandbox = {
+  run(submission: Submission, seeds: Seeds): Promise<SandboxAnswer>;
+  /** How many times workerd was started afresh after a timeout. */
+  readonly restarts: number;
+  /** How long judge.js's top level took to run, or null if it never ended. */
+  readonly loadMs: number | null;
+  close(): Promise<void>;
+};
+/** `protocol` below the kit's runs that protocol's runtime, kept frozen. */
+export function openSandbox(
+  code: string,
+  options?: { live?: boolean; protocol?: number },
+): Promise<Sandbox>;
+
+export function testCommand(
+  options: CommandOptions,
+): Promise<{ exitCode: number }>;
+
+/**
+ * npm run check's reminders of what a 红包 from this judge would start with
+ * that its sender would not want by default (人机验证 on; a 附带网页 not
+ * opening by itself, or its button not on the note's first line).
+ */
+export function defaultsReminders(declared: {
+  meta: { page?: string } | null;
+  hongbao: {
+    humanCheck?: boolean;
+    pageAutoOpen?: boolean;
+    note?: string;
+  } | null;
+}): string[];
+
+export function checkCommand(options: CommandOptions): Promise<{
+  exitCode: number;
+  fingerprint: string;
+  /** Names of the tests whose two runs differed. */
+  unstable: string[];
+}>;
+
+export type SimulatedSubmission = {
+  who: string;
+  user: Omit<Submission["user"], "attempts">;
+  input: string;
+  at: number;
+} & (
+  | { refused: Refusal }
+  | {
+      submission: Submission;
+      seeds: Seeds;
+      answer: SandboxAnswer;
+      ms: number;
+      reading?:
+        | VerdictReading
+        | LedgerReading
+        | { error: { kind: "invalid"; detail: string } };
+      /** Protocol 5: what it moved. */
+      ledger?: LedgerMoves;
+    }
+);
+
+export function simulateCommand(options: CommandOptions): Promise<{
+  exitCode: number;
+  simulation?: {
+    hongbao: PlayedHongbao;
+    hongbaoId: string;
+    seed: string;
+    /** 协议第四版: setup()'s answer, when judge.js exports setup. */
+    setup?: { state: StateChange; view: ViewChange };
+    judged: SimulatedSubmission[];
+  };
+}>;
+
+export function replayCommand(
+  options: CommandOptions,
+): Promise<{ exitCode: number }>;
+
+/** npm run page's viewer who has not signed in. */
+export const GUEST: string;
+
+/** npm run page: the simulator for the kit at `root` (judge.js, simulate.json, page/). */
+export function startPage(options: {
+  root: string;
+  /** The 红包 page's; the page's is the next one (0: any two). */
+  port?: number;
+  /** Seconds each person waits after a submission. */
+  cooldown?: number;
+  live?: boolean;
+  print?: Print;
+}): Promise<{
+  hostUrl: string;
+  pageUrl: string;
+  network: string[] | null;
+  /** --play: simulate.json's submissions, judged in order. */
+  play(say?: Print): Promise<void>;
+  close(): Promise<void>;
+}>;
+export function pageCommand(
+  options: CommandOptions,
+): Promise<{ exitCode: number }>;
+/**
+ * npm run page --shot: the simulator in a browser no one sees, three shots
+ * into `out` and what went wrong in the page; not 0 when something did.
+ */
+export function shotCommand(options: {
+  root: string;
+  out: string;
+  play: boolean;
+  live: boolean;
+  print: Print;
+}): Promise<{ exitCode: number }>;
+
+export type SimulationPlan = {
+  /** simulate.json's now (ms), or the tests' default. */
+  now: number;
+  hongbao: PlayedHongbao;
+  seed: string;
+  submissions: {
+    who: string;
+    user: Omit<Submission["user"], "attempts">;
+    input: string;
+    at: number;
+  }[];
+};
+export function readSimulation(
+  text: string,
+  file?: string,
+): { plan: SimulationPlan } | { problem: string };

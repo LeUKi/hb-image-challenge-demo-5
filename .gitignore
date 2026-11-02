@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.tanstack/
+.wrangler/
+.output/
+coverage/
+.env
+.env.*
+.dev.vars
+.dev.vars.*
+*.local.json
+worker-configuration.d.ts
+.DS_Store
+shots/

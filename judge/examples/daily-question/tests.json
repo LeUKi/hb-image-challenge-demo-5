@@ -1,0 +1,125 @@
+{
+  "$schema": "../../tests.schema.json",
+  "params": {
+    "questions": [
+      {
+        "question": "一年有几个季度？",
+        "answer": "4"
+      },
+      {
+        "question": "一周有几天？",
+        "answer": "7"
+      }
+    ],
+    "perDay": 2,
+    "tries": 3
+  },
+  "tests": [
+    {
+      "name": "开放当天答对第一题",
+      "input": "4",
+      "hongbao": {
+        "openedAt": "2026-10-24T09:00:00+08:00"
+      },
+      "expect": {
+        "message": "答对了！",
+        "settled": 2500
+      }
+    },
+    {
+      "name": "答错时告诉他今天的题",
+      "input": "5",
+      "hongbao": {
+        "openedAt": "2026-10-24T09:00:00+08:00"
+      },
+      "expect": {
+        "message": "不对。今天的题：一年有几个季度？",
+        "settled": null
+      }
+    },
+    {
+      "name": "第二天是第二题",
+      "input": "7",
+      "now": "2026-10-25T08:00:00+08:00",
+      "hongbao": {
+        "openedAt": "2026-10-24T23:00:00+08:00",
+        "endsAt": "2026-10-31T23:00:00+08:00"
+      },
+      "expect": {
+        "settled": 2500
+      }
+    },
+    {
+      "name": "今天的名额发完了",
+      "input": "4",
+      "hongbao": {
+        "openedAt": "2026-10-24T09:00:00+08:00"
+      },
+      "claims": [
+        {
+          "user": {
+            "id": 20001,
+            "username": "小王"
+          },
+          "amount": 1000,
+          "input": "4",
+          "at": "2026-10-24T10:00:00+08:00"
+        },
+        {
+          "user": {
+            "id": 20002,
+            "username": "小李"
+          },
+          "amount": 1000,
+          "input": "4",
+          "at": "2026-10-24T11:00:00+08:00"
+        }
+      ],
+      "expect": {
+        "message": "今天的 2 份发完了，明天再来",
+        "settled": null
+      }
+    },
+    {
+      "name": "题出完了",
+      "input": "7",
+      "now": "2026-10-27T12:00:00+08:00",
+      "hongbao": {
+        "openedAt": "2026-10-24T09:00:00+08:00",
+        "endsAt": "2026-10-31T09:00:00+08:00"
+      },
+      "expect": {
+        "message": "题都出完了",
+        "settled": null
+      }
+    },
+    {
+      "name": "答满了",
+      "input": "4",
+      "user": {
+        "attempts": 3
+      },
+      "hongbao": {
+        "openedAt": "2026-10-24T09:00:00+08:00"
+      },
+      "expect": {
+        "messageIncludes": "不能再答",
+        "settled": null
+      }
+    },
+    {
+      "name": "答满了就结算，没领到",
+      "input": "5",
+      "user": {
+        "attempts": 2
+      },
+      "hongbao": {
+        "openedAt": "2026-10-24T09:00:00+08:00"
+      },
+      "expect": {
+        "settled": 0,
+        "message": "不对。今天的题：一年有几个季度？"
+      }
+    }
+  ]
+}

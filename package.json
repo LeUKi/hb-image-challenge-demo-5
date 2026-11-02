@@ -1,0 +1,77 @@
+{
+  "name": "hb-image-challenge-demo-5",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Author-owned image challenges for programmable hongbao, built with TanStack Start and Cloudflare Workers.",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5173",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 5173",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build && npm run judge:test && npm run judge:check",
+    "cf:typegen": "wrangler types",
+    "db:local": "wrangler d1 migrations apply DB --local",
+    "db:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "npm run build && wrangler deploy && npm run db:remote",
+    "judge:test": "npm --prefix judge test",
+    "judge:check": "npm --prefix judge run check",
+    "judge:page": "npm --prefix judge run page --",
+    "smoke": "node scripts/smoke.mjs",
+    "simulator": "npm run build && node scripts/dev-simulator.mjs",
+    "simulator:start": "node scripts/dev-simulator.mjs"
+  },
+  "cloudflare": {
+    "bindings": {
+      "OWNER_ID": {
+        "description": "你的 LINUX DO 数字用户 ID。只为这个作者的红包处理图片。"
+      },
+      "IMAGES": {
+        "description": "玩家图片保存在你自己账号的 R2 中，默认私有。"
+      },
+      "DB": {
+        "description": "保存挑战配置、玩家次数和不可变的评分结果。"
+      },
+      "AI": {
+        "description": "使用你的 Workers AI 额度，不需要填写 API Token。"
+      }
+    }
+  },
+  "dependencies": {
+    "@tanstack/react-form": "1.33.5",
+    "@tanstack/react-query": "5.105.1",
+    "@tanstack/react-router": "1.170.46",
+    "@tanstack/react-router-ssr-query": "1.167.3",
+    "@tanstack/react-start": "1.169.4",
+    "jose": "6.2.14",
+    "jotai": "3.0.1",
+    "lucide-react": "1.66.0",
+    "motion": "14.9.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/vite-plugin": "1.66.0",
+    "@cloudflare/workers-types": "5.20261101.1",
+    "@eslint/js": "10.0.1",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "26.6.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "eslint": "10.14.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "playwright-core": "1.63.0",
+    "tailwindcss": "4.3.3",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.72.1",
+    "vite": "8.3.5",
+    "vitest": "5.0.5",
+    "wrangler": "4.156.0"
+  }
+}

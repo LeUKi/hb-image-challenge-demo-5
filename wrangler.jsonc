@@ -1,0 +1,25 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "hb-image-challenge-demo-5",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-10-30",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "vars": {
+    "OWNER_ID": "332940"
+  },
+  "ai": { "binding": "AI" },
+  "r2_buckets": [
+    { "binding": "IMAGES", "bucket_name": "hb-image-challenge-images","preview_bucket_name": "hb-image-challenge-images" }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "hb-image-challenge",
+      "database_id": "5f7597ce-78cd-44fe-b649-d1c8a94f39da",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "observability": { "enabled": true }
+}

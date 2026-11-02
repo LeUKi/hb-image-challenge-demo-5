@@ -1,0 +1,46 @@
+# 代码判定红包 · 开发包
+
+在自己电脑上写、测代码判定红包的代码（`judge.js`）用的工具。这个目录用 MIT 许可（见 `LICENSE`），和仓库其余部分的 AGPL 分开：照着这里写的代码不受牵连。
+
+## 怎么开始
+
+先装好 Node.js 22 或更新的版本，然后：
+
+```sh
+npx degit LeUKi/hb/kit 我的红包
+cd 我的红包
+npm install
+npm test
+```
+
+不用 degit 也行：下载仓库的压缩包，取出里面的 `kit` 目录，进去运行 `npm install`。
+
+`npm install` 只装 `wrangler`（版本和网站一致）。五个命令靠它自带的 Miniflare 在本地起 workerd：兼容日期、`nodejs_compat`、外层和 `tools` 都和线上一样。代码导出 `network` 才能联网；测试里的请求拿 `tests.json` 写的返回，从不真的联网，`npm run simulate -- --live` 才真的发出去。本地不限 CPU，每次判定超过 1 秒算超时，超过 50 毫秒的标“慢”（线上每次判定只有 50 毫秒 CPU）。
+
+## 五个命令
+
+- `npm test`：跑 `tests.json`，每条一行，`console` 的输出跟在下面。`npm test -- 名字` 只跑名字里含这几个字的。
+- `npm run check`：照网站部署时的规则查一遍，最后写“可以去网站部署了”或“还不能开放”，还有代码指纹，和网站上展开代码时显示的对得上。
+- `npm run simulate`：让 `simulate.json` 里的人依次来领，看每个人的待结算怎么变、钱怎么发出去。`npm run simulate -- --seed 别的` 换一个种子，`--live` 让联网的请求真的发出去。
+- `npm run replay -- judge-records-xxx.json`：红包结束后，用网站上下载的完整记录逐条重放核对。
+- `npm run page`：本地的模拟器，看附带网页（`page/`）和 `judge.js` 配合起来是什么样：宽屏、手机、多人三种布局，红包窗口和提示大致照网站，提交交给本地的 `judge.js` 跑。`npm run page -- examples/number-bomb` 打开一个样例。`npm run page -- --shot` 不开窗口，截宽屏和手机三张图到 `shots/`，列出网页报错，给 AI 用。
+
+失败时退出码都不是 0，脚本和 AI 都能据此判断。
+
+## 文件
+
+- `judge.js`、`tests.json`、`simulate.json`：模板，一个能跑通的示例玩法（猜暗号），改成你自己的。
+- `page/index.html`、`page/hb.d.ts`：附带网页的模板（接好了红包站的 SDK）和 SDK 的类型。不需要网页就不用管它。
+- `tests.schema.json`、`simulate.schema.json`：两个 JSON 的格式，编辑器据此补全、标错。
+- `judge.d.ts`、`modules.d.ts`、`jsconfig.json`：类型。`tools` 和能用的 Node 模块，编辑器和 AI 都看得到。
+- `AGENTS.md`：完整的规则、最佳做法（带网页的玩法、认人、自有后端、热闹的玩法、上线前）和常见错误，给 AI 也给人看。开头的“要点”和 `.claude/skills/`、`.cursor/rules/` 里的是同一段：AI 一定会先读到它。
+- `runtime/`：沙箱里和代码一起跑的那部分，网站上用的是同一份。
+- `cli/`：五个命令。
+
+## 写完以后
+
+带网页的玩法：网页改好、`npm run page` 里试过以后，放到静态托管上（Cloudflare Workers、GitHub Pages、Netlify、Vercel 的正式部署都行；Cloudflare Drop 拖上去的要先认领），把地址写进 `judge.js` 的 `meta.page`，`hongbao` 里写上 `pageAutoOpen: true`，说明（`note`）第一行放打开网页的按钮。网页有自己的后端、要知道是谁，用 SDK 的 `hb.identity()`，见 `AGENTS.md` 的“认人（鉴权）”。
+
+`npm test` 和 `npm run check` 都过了，就去网站写判定器：判定器广场右上的“自己写一个”（`https://hb.lafi.sh/judges/new`），起个名字，贴上 `judge.js` 和 `tests.json`，部署。测试全过以后，在它的判定器页按“用它发红包”，或者发红包时在第 2 步从判定器广场的“我的”里挑它。用 AI 写也一样：告诉它你的玩法，让它照 `AGENTS.md` 写，两个命令都过了再贴。
+
+开发包按协议版本发布，这一份是第五版（第四版加上每个人的待结算、自己的状态、只给自己看的数据和同桌的人，没有份数，只有总奖池；第四版是第三版加上公开数据、动态和提前结束，第三版是第二版加上参数，第二版是第一版加上联网；兼容日期 2026-09-01 + `nodejs_compat`），也能重放第一到第四版开放的红包（`runtime/frozen/`）。用第四版以前写的判定器，要先按第五版重新跑一遍测试才能发新红包，`AGENTS.md` 写了改什么。协议的来龙去脉见仓库的 `docs/programmable-hongbao-design.md` 第 4、5、9 节，参数见 `docs/judge-square-design.md` 第 3–5 节，公开数据见 `docs/judge-page-design.md` 第 2 节，待结算和结算见 `docs/multi-prize-design.md`。

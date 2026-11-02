@@ -1,0 +1,453 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tests.json",
+  "description": "代码判定红包的测试：只是数据，平台不当代码跑，不算进指纹，不公开。一条测试就是一次提交，字段和 judge() 收到的 submission 同名，只写跟它有关的，其余用默认值。规则见 AGENTS.md。",
+  "type": "object",
+  "required": ["tests"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "写 \"./tests.schema.json\"，编辑器就能补全、标错"
+    },
+    "params": {
+      "description": "每条测试默认用的参数（协议第三版）：key 对应 judge.js 的 params 声明，没写的项用 default；测试自己写了 params 就用自己的。金额是整数分。",
+      "type": "object"
+    },
+    "tests": {
+      "type": "array",
+      "description": "测试的数组。名字不能重复；所有测试加起来最多判定 200 次（多步的一步算一次）。",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": { "$ref": "#/$defs/test" }
+    }
+  },
+  "$defs": {
+    "test": {
+      "description": "一条测试：一次提交（写 input 和 expect），或者几个人依次提交（写 steps）。只能写线上可能出现的情况，不然这条测试本身不通过。",
+      "type": "object",
+      "required": ["name"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "description": "测试的名字，最多 100 个字，不能重名；npm test -- 名字 只跑名字里含这几个字的",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "\\S"
+        },
+        "now": {
+          "$ref": "#/$defs/time",
+          "description": "这次提交的时间（多步的是第一步的），要在开放和截止之间；默认 2026-10-24 12:00（北京时间）"
+        },
+        "hongbao": { "$ref": "#/$defs/hongbao" },
+        "claims": {
+          "description": "前面已经结算、领到钱的人：写数字，补上这么多条占位记录（每人约 1 LDC）；或者写完整列表。默认没有；加起来要少于总奖池。",
+          "anyOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "array", "items": { "$ref": "#/$defs/claim" } }
+          ]
+        },
+        "players": {
+          "description": "第五版：前面已经玩过、还没结算的人。名字对应他的待结算、状态和只给他看的数据，比如 { \"小明\": { \"pending\": 50 } }。这次提交的人（单次测试的 user.username、多步的 who）也可以在里面；他们的待结算加上 claims 要少于总奖池。",
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/username" },
+          "additionalProperties": { "$ref": "#/$defs/player" }
+        },
+        "state": {
+          "description": "代码之前存的共用状态（任意 JSON），默认 null；最大 16 KB，最多嵌套 100 层"
+        },
+        "seed": {
+          "description": "种子（64 位小写十六进制）：tools.random 和 tools.userRandom 由它推出来。默认固定的测试种子",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "params": {
+          "description": "这条测试的参数（协议第三版）：按 judge.js 的 params 声明校验，没写的项用 default；代码导出了 check 也要过 check。默认用文件顶层的 params。金额是整数分。",
+          "type": "object"
+        },
+        "input": { "$ref": "#/$defs/input" },
+        "user": { "$ref": "#/$defs/user" },
+        "fetch": {
+          "description": "这次判定的请求拿到的返回（联网，协议第 9 节），最多 3 个；有请求没写到、写了没用上，这条测试都不通过。测试从不真的联网。",
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/fetchAnswer" }
+        },
+        "expect": { "$ref": "#/$defs/expect" },
+        "steps": {
+          "description": "几个人依次提交。共用的状态、每个人的待结算和状态、已经结算的、奖池都像线上一样一步步往下传；hongbao、claims、players、state、seed 是第一步之前的样子。写了 steps 就不写 input、user、fetch、expect。",
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 200,
+          "items": { "$ref": "#/$defs/step" }
+        },
+        "share": {
+          "description": "兼容旧代码的 share 由 claims 和 players 推出来，不能直接写",
+          "not": {}
+        }
+      },
+      "oneOf": [
+        { "required": ["input", "expect"], "not": { "required": ["steps"] } },
+        {
+          "required": ["steps"],
+          "not": {
+            "anyOf": [
+              { "required": ["input"] },
+              { "required": ["user"] },
+              { "required": ["fetch"] },
+              { "required": ["expect"] }
+            ]
+          }
+        }
+      ]
+    },
+    "time": {
+      "description": "毫秒（整数），或带时区的 ISO 时间，比如 \"2026-10-24T12:00:00+08:00\"；不带时区的不认",
+      "anyOf": [
+        { "type": "integer" },
+        {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$"
+        }
+      ]
+    },
+    "input": {
+      "description": "提交的输入，规则同线上：一行，去掉首尾空白以后 1–200 个字；区分大小写，符号都算",
+      "type": "string",
+      "pattern": "^\\s*[^\\r\\n]{0,199}\\S\\s*$"
+    },
+    "username": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 60,
+      "pattern": "\\S"
+    },
+    "level": {
+      "description": "信任等级 0–4，没有时 null；默认 2",
+      "enum": [0, 1, 2, 3, 4, null],
+      "default": 2
+    },
+    "hongbao": {
+      "description": "第一次提交之前红包的样子。默认：测试红包、总奖池 10000、now 前 1 小时开放、now 后 1 天截止。第五版没有份数和每份至少，只有总奖池。",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "title": {
+          "description": "红包的标题，1–100 个字；默认“测试红包”",
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100,
+          "pattern": "\\S",
+          "default": "测试红包"
+        },
+        "total": {
+          "description": "总奖池（分）",
+          "type": "integer",
+          "minimum": 1,
+          "default": 10000
+        },
+        "count": { "description": "第五版没有份数，不能写", "not": {} },
+        "minEach": { "description": "第五版没有每份至少，不能写", "not": {} },
+        "openedAt": {
+          "$ref": "#/$defs/time",
+          "description": "开放的时间；默认 now 前 1 小时"
+        },
+        "endsAt": {
+          "$ref": "#/$defs/time",
+          "description": "截止的时间，要晚于开放；默认 now 后 1 天"
+        },
+        "remaining": {
+          "description": "剩余奖池由 claims 推出来，不能直接写",
+          "not": {}
+        },
+        "remainingCount": {
+          "description": "兼容旧代码的剩余份数由 claims 推出来，不能直接写",
+          "not": {}
+        },
+        "unclaimed": {
+          "description": "奖池里还没被占的由 claims 和 players 推出来，不能直接写",
+          "not": {}
+        }
+      }
+    },
+    "claim": {
+      "description": "前面已经结算、领到钱的一个人。按先后写，不早于开放、不晚于这次提交（多步的是第一步）；同一个人只有一条，提交的人不在里面。",
+      "type": "object",
+      "required": ["user", "amount", "input", "at"],
+      "additionalProperties": false,
+      "properties": {
+        "user": {
+          "type": "object",
+          "required": ["id", "username"],
+          "additionalProperties": false,
+          "properties": {
+            "id": { "type": "integer", "minimum": 1 },
+            "username": { "$ref": "#/$defs/username" }
+          }
+        },
+        "amount": {
+          "description": "结算领到的（分）",
+          "type": "integer",
+          "minimum": 1
+        },
+        "input": { "$ref": "#/$defs/input" },
+        "at": { "$ref": "#/$defs/time", "description": "结算的时间" }
+      }
+    },
+    "user": {
+      "description": "提交的人。默认 id 10000、username tester、level 2、attempts 0",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "description": "LINUX DO 数字 ID",
+          "type": "integer",
+          "minimum": 1,
+          "default": 10000
+        },
+        "username": { "$ref": "#/$defs/username", "default": "tester" },
+        "level": { "$ref": "#/$defs/level" },
+        "attempts": {
+          "description": "他在这个红包里之前被判定过几次（出错、超时不算）",
+          "type": "integer",
+          "minimum": 0,
+          "default": 0
+        }
+      }
+    },
+    "fetchAnswer": {
+      "description": "一个请求的返回（联网，协议第 9 节）：代码发出的请求按方法和完整地址对上一个还没用过的。写了 error 就是这个请求失败。",
+      "type": "object",
+      "required": ["url"],
+      "additionalProperties": false,
+      "properties": {
+        "url": { "description": "请求的完整地址", "type": "string" },
+        "method": {
+          "description": "默认 GET",
+          "enum": ["GET", "POST"],
+          "default": "GET"
+        },
+        "status": {
+          "description": "状态码，默认 200",
+          "type": "integer",
+          "minimum": 200,
+          "maximum": 599,
+          "default": 200
+        },
+        "headers": {
+          "description": "返回的头",
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        },
+        "json": {
+          "description": "返回的 JSON（content-type 默认 application/json）；和 text 二选一"
+        },
+        "text": {
+          "description": "返回的文字；和 json 二选一",
+          "type": "string"
+        },
+        "error": {
+          "description": "这个请求失败：timeout 超时，unreachable 连不上，too-big 返回超过 64 KB；写了就不写 status、headers、json、text",
+          "enum": ["timeout", "unreachable", "too-big"]
+        }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["json", "text"] },
+          { "required": ["error", "status"] },
+          { "required": ["error", "headers"] },
+          { "required": ["error", "json"] },
+          { "required": ["error", "text"] }
+        ]
+      }
+    },
+    "step": {
+      "description": "多步场景的一步。同一个 who 是同一个人；已经领过的人、或者份已经领完了还提交，这一步算不通过（线上根本不会交给代码）。",
+      "type": "object",
+      "required": ["who", "input", "expect"],
+      "additionalProperties": false,
+      "properties": {
+        "who": {
+          "description": "谁提交的：username 就是它，id 按第一次出现的先后从 10001 编",
+          "$ref": "#/$defs/username"
+        },
+        "input": { "$ref": "#/$defs/input" },
+        "level": { "$ref": "#/$defs/level" },
+        "at": {
+          "$ref": "#/$defs/time",
+          "description": "这一步的时间，要按先后写、在开放和截止之间；默认上一步往后 1 分钟，第一步是 now"
+        },
+        "fetch": {
+          "description": "这一步的请求拿到的返回（联网，协议第 9 节），最多 3 个；有请求没写到、写了没用上，这一步都不通过。",
+          "type": "array",
+          "maxItems": 3,
+          "items": { "$ref": "#/$defs/fetchAnswer" }
+        },
+        "expect": { "$ref": "#/$defs/expect" }
+      }
+    },
+    "expect": {
+      "description": "期望：写了才比，不一样的地方一起列出来（什么都不写，就只看能不能跑通）。代码返回协议以外的字段也算不通过。",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ok": {
+          "description": "简写：这次判定有没有给提交的人结算、并且领到钱（结算 0 不算）",
+          "type": "boolean"
+        },
+        "amount": {
+          "description": "简写：这次结算领到的（分）",
+          "type": "integer",
+          "minimum": 1
+        },
+        "add": {
+          "description": "判定器给提交的人的 add（分）；{ ok: true, amount } 的 add 就是 amount",
+          "type": "integer"
+        },
+        "settle": {
+          "description": "判定器有没有说给提交的人结算",
+          "type": "boolean"
+        },
+        "pending": {
+          "description": "这次以后的待结算（分）；结算以后是 0",
+          "type": "integer",
+          "minimum": 0
+        },
+        "settled": {
+          "description": "结算的金额（分），可以是 0；还没结算写 null",
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "player": {
+          "description": "提交的人这次以后自己的状态和只给他看的数据：写了 state、view 的哪项，那项整份比",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": { "state": {}, "view": { "type": ["object", "null"] } }
+        },
+        "playerIncludes": {
+          "description": "同 player，只比写了的键",
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": { "type": "object" },
+            "view": { "type": "object" }
+          }
+        },
+        "people": {
+          "description": "按名字（who、username）：这些人这次以后的样子",
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "pending": {
+                "description": "这次以后的待结算（分）；结算以后是 0",
+                "type": "integer",
+                "minimum": 0
+              },
+              "settled": {
+                "description": "结算的金额（分），可以是 0；还没结算写 null",
+                "type": ["integer", "null"],
+                "minimum": 0
+              },
+              "state": { "description": "他的状态，整份比" },
+              "stateIncludes": {
+                "description": "他的状态，只比写了的键",
+                "type": "object"
+              },
+              "view": {
+                "description": "只给他看的数据，整份比；没有写 null",
+                "type": ["object", "null"]
+              },
+              "viewIncludes": {
+                "description": "只给他看的数据，只比写了的键",
+                "type": "object"
+              },
+              "message": {
+                "description": "others 这次写给他的话，逐字比；没写给他写 \"\"",
+                "type": "string"
+              }
+            },
+            "allOf": [
+              { "not": { "required": ["state", "stateIncludes"] } },
+              { "not": { "required": ["view", "viewIncludes"] } }
+            ]
+          }
+        },
+        "message": {
+          "description": "代码的回复，逐字比（换行和连续空白已合成一个空格）",
+          "type": "string"
+        },
+        "messageIncludes": {
+          "description": "代码的回复里含这几个字",
+          "type": "string",
+          "minLength": 1
+        },
+        "state": {
+          "description": "这次判定以后共用的状态，整份比，键的顺序不算"
+        },
+        "stateIncludes": {
+          "description": "这次判定以后共用的状态，只比写了的键，数组整个比",
+          "type": "object"
+        },
+        "view": {
+          "description": "第四版：这次判定以后的公开数据（summary、data），整份比；没有公开数据写 null",
+          "type": ["object", "null"]
+        },
+        "viewIncludes": {
+          "description": "第四版：这次判定以后的公开数据，只比写了的键，同 stateIncludes",
+          "type": "object"
+        },
+        "announce": {
+          "description": "第四版：这次写的动态，逐字比（换行和连续空白已合成一个空格）；没有动态写 \"\"",
+          "type": "string"
+        },
+        "end": {
+          "description": "这次判定以后红包结束了没有（end 结束的，或者奖池被占满了）",
+          "type": "boolean"
+        },
+        "asked": {
+          "description": "第五版没有 asked：判定器给的写 add",
+          "not": {}
+        },
+        "note": {
+          "description": "第五版没有 note：加上以后的待结算写 pending",
+          "not": {}
+        }
+      },
+      "allOf": [
+        { "not": { "required": ["message", "messageIncludes"] } },
+        { "not": { "required": ["state", "stateIncludes"] } },
+        { "not": { "required": ["view", "viewIncludes"] } },
+        { "not": { "required": ["player", "playerIncludes"] } },
+        {
+          "if": {
+            "properties": { "ok": { "const": false } },
+            "required": ["ok"]
+          },
+          "then": { "not": { "required": ["amount"] } }
+        }
+      ]
+    },
+    "player": {
+      "description": "第五版：一个还没结算的人在第一次提交之前的样子。",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pending": {
+          "description": "待结算（分），默认 0",
+          "type": "integer",
+          "minimum": 0
+        },
+        "state": {
+          "description": "判定器给他存的状态（任意 JSON），默认 null；最大 4 KB"
+        },
+        "view": {
+          "description": "只给他看的数据：{ summary, data }，summary 最多 200 个字，data 最大 4 KB；没有写 null",
+          "type": ["object", "null"]
+        }
+      }
+    }
+  }
+}
